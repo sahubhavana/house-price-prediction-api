@@ -1,0 +1,240 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Ghar Ka Daam – House Price Dashboard</title>
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;700&family=Young+Serif&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#0c1024; --panel:#151a36; --panel-2:#1c2244; --line:#2a3160;
+  --text:#e9ecff; --muted:#98a0cf; --gold:#ffb52e; --teal:#2dd4a7; --red:#ff6b6b;
+}
+*{box-sizing:border-box;margin:0}
+html,body{height:100%}
+body{font-family:'DM Sans',system-ui,sans-serif;color:var(--text);line-height:1.45;
+  background:radial-gradient(1200px 600px at 80% -10%,#26307a55,transparent 60%),var(--bg)}
+.app{height:100vh;display:grid;grid-template-rows:auto 1fr}
+.top{display:flex;justify-content:space-between;align-items:center;gap:16px;padding:14px 20px;border-bottom:1px solid var(--line);flex-wrap:wrap}
+.brand{display:flex;align-items:center;gap:12px}
+.logo{width:42px;height:42px;border-radius:12px;background:var(--gold);color:#1a1300;display:grid;place-items:center;font-family:'Young Serif',serif;font-size:1.4rem}
+h1{font-family:'Young Serif',Georgia,serif;font-weight:400;font-size:1.35rem;line-height:1.1}
+.brand p{color:var(--muted);font-size:.82rem}
+.api{display:flex;align-items:center;gap:10px;font-size:.82rem;color:var(--muted)}
+.api input{width:210px;padding:7px 10px;border-radius:8px;border:1px solid var(--line);background:var(--panel);color:var(--text);font:inherit;font-size:.82rem}
+.dot{width:9px;height:9px;border-radius:50%;background:var(--line)}
+.dot.ok{background:var(--teal);box-shadow:0 0 8px var(--teal)}.dot.bad{background:var(--red)}
+
+.board{display:grid;grid-template-columns:330px 1fr 300px;gap:16px;padding:16px;min-height:0}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:16px;padding:20px;min-height:0;overflow:auto}
+.card h2{font-size:.95rem;font-weight:500;color:var(--muted);margin-bottom:14px}
+
+/* inputs */
+.fields{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+.full{grid-column:1/-1}
+label{display:block;font-size:.82rem;color:var(--muted);margin-bottom:5px}
+input[type=number]{width:100%;padding:10px 12px;border-radius:9px;border:1px solid var(--line);background:var(--panel-2);color:var(--text);font:inherit}
+input:focus,button:focus-visible{outline:2px solid var(--gold);outline-offset:1px}
+.unit{position:relative}.unit input{padding-right:46px}
+.unit span{position:absolute;right:11px;top:50%;transform:translateY(-50%);color:var(--muted);font-size:.78rem}
+.step{display:flex;align-items:center;border:1px solid var(--line);border-radius:9px;background:var(--panel-2);overflow:hidden}
+.step button{width:38px;height:38px;border:0;background:transparent;color:var(--text);font-size:1.15rem;cursor:pointer}
+.step button:hover{background:var(--line)}
+.step output{flex:1;text-align:center;font-weight:700}
+.rate{display:flex;align-items:center;gap:10px}
+.rate input{flex:1;accent-color:var(--gold)}.rate output{font-weight:700;min-width:2.4ch}
+.go{width:100%;margin-top:18px;padding:13px;border:0;border-radius:11px;background:var(--gold);color:#1a1300;font:inherit;font-weight:700;font-size:1rem;cursor:pointer}
+.go:hover{filter:brightness(1.08)}.go:disabled{opacity:.6;cursor:wait}
+.err{margin-top:12px;padding:10px 12px;border-radius:9px;background:#ff6b6b22;color:#ffb0b0;font-size:.86rem}
+
+/* centre */
+.center{display:grid;grid-template-rows:auto 1fr;gap:16px;min-height:0}
+.hero{background:linear-gradient(135deg,#232c6b,#151a36 70%)}
+.price{font-family:'Young Serif',Georgia,serif;font-size:clamp(2.2rem,5vw,4rem);line-height:1.1;
+  background:linear-gradient(90deg,var(--gold),#ffe29a);-webkit-background-clip:text;background-clip:text;color:transparent;word-break:break-word}
+.words{font-size:1.15rem;color:var(--text);margin-top:4px}
+.tiles{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-top:20px}
+.tile{background:#ffffff0d;border:1px solid var(--line);border-radius:12px;padding:12px 14px}
+.tile small{color:var(--muted);font-size:.78rem;display:block}
+.tile b{font-size:1.2rem;font-weight:700}
+.up{color:var(--teal)}.down{color:var(--red)}
+.chart{display:flex;flex-direction:column}
+.chart svg{width:100%;flex:1;min-height:180px}
+.hint{color:var(--muted);font-size:.8rem;margin-top:6px}
+
+/* history */
+.hist ul{list-style:none;padding:0;display:grid;gap:10px}
+.hist li{padding:12px;border-radius:11px;background:var(--panel-2);border:1px solid var(--line)}
+.hist li b{display:block;font-size:1.05rem}
+.hist li span{font-size:.8rem;color:var(--muted)}
+.empty{color:var(--muted);font-size:.88rem}
+
+@media(max-width:1050px){
+  .app{height:auto}.board{grid-template-columns:1fr}.card{overflow:visible}
+  .tiles{grid-template-columns:1fr}.chart svg{min-height:220px}
+}
+@media(prefers-reduced-motion:no-preference){.price{transition:opacity .25s}.price.load{opacity:.4}}
+</style>
+</head>
+<body>
+<div class="app">
+  <header class="top">
+    <div class="brand"><div class="logo">₹</div><div><h1>Ghar ka daam</h1><p>Indian house price dashboard</p></div></div>
+    <div class="api"><span class="dot" id="dot"></span><span id="status">checking…</span>
+      <input id="url" value="http://127.0.0.1:8000" aria-label="API address"></div>
+  </header>
+
+  <main class="board">
+    <!-- INPUTS -->
+    <form class="card" id="form" novalidate>
+      <h2>House details</h2>
+      <div class="fields">
+        <div class="full"><label for="area">Built-up area</label>
+          <div class="unit"><input type="number" id="area" min="1" value="1500"><span>sq ft</span></div></div>
+        <div><label>Bedrooms</label><div class="step" data-key="bed" data-min="1" data-max="10"><button type="button" data-d="-1" aria-label="Fewer bedrooms">−</button><output>3</output><button type="button" data-d="1" aria-label="More bedrooms">+</button></div></div>
+        <div><label>Bathrooms</label><div class="step" data-key="bath" data-min="1" data-max="10"><button type="button" data-d="-1" aria-label="Fewer bathrooms">−</button><output>2</output><button type="button" data-d="1" aria-label="More bathrooms">+</button></div></div>
+        <div><label>Floors</label><div class="step" data-key="floors" data-min="1" data-max="10"><button type="button" data-d="-1" aria-label="Fewer floors">−</button><output>2</output><button type="button" data-d="1" aria-label="More floors">+</button></div></div>
+        <div><label>Garage spaces</label><div class="step" data-key="garage" data-min="0" data-max="6"><button type="button" data-d="-1" aria-label="Fewer garage spaces">−</button><output>1</output><button type="button" data-d="1" aria-label="More garage spaces">+</button></div></div>
+        <div><label for="age">Age of house</label><div class="unit"><input type="number" id="age" min="0" value="5"><span>years</span></div></div>
+        <div><label for="dist">Distance to city</label><div class="unit"><input type="number" id="dist" min="0" step="0.1" value="8"><span>km</span></div></div>
+        <div class="full"><label for="loc">Location rating</label>
+          <div class="rate"><input type="range" id="loc" min="0" max="10" step="0.5" value="7"><output id="locOut">7</output></div></div>
+      </div>
+      <button class="go" id="go" type="submit">Estimate price</button>
+      <div class="err" id="err" hidden></div>
+    </form>
+
+    <!-- CENTRE -->
+    <section class="center" aria-live="polite">
+      <div class="card hero">
+        <h2>Estimated market price</h2>
+        <div class="price" id="price">₹ —</div>
+        <div class="words" id="words">Press “Estimate price” to begin.</div>
+        <div class="tiles">
+          <div class="tile"><small>Price per sq ft</small><b id="t1">—</b></div>
+          <div class="tile"><small>Configuration</small><b id="t2">—</b></div>
+          <div class="tile"><small>Change vs last estimate</small><b id="t3">—</b></div>
+        </div>
+      </div>
+      <div class="card chart">
+        <h2>How the price changes with area</h2>
+        <svg id="chart" viewBox="0 0 640 260" preserveAspectRatio="xMidYMid meet" role="img" aria-label="Price versus area chart"></svg>
+        <p class="hint">Each point is a live prediction with the area changed and everything else kept the same.</p>
+      </div>
+    </section>
+
+    <!-- HISTORY -->
+    <aside class="card hist">
+      <h2>Recent estimates</h2>
+      <ul id="list"><li class="empty">Your estimates will appear here.</li></ul>
+    </aside>
+  </main>
+</div>
+
+<script>
+const $ = id => document.getElementById(id);
+const state = {bed:3, bath:2, floors:2, garage:1};
+const history = [];
+const base = () => $('url').value.replace(/\/$/,'');
+
+/* steppers + slider */
+document.querySelectorAll('.step').forEach(el=>{
+  const k=el.dataset.key, min=+el.dataset.min, max=+el.dataset.max, out=el.querySelector('output');
+  el.addEventListener('click',e=>{
+    const b=e.target.closest('button'); if(!b) return;
+    state[k]=Math.min(max,Math.max(min,state[k]+ +b.dataset.d)); out.textContent=state[k];
+  });
+});
+$('loc').addEventListener('input',e=>$('locOut').textContent=e.target.value);
+
+/* formatting */
+const inr = n => '₹' + Math.round(n).toLocaleString('en-IN');
+const short = n => n>=1e7 ? (n/1e7).toFixed(2)+' Cr' : n>=1e5 ? (n/1e5).toFixed(1)+' L' : Math.round(n).toLocaleString('en-IN');
+const words = n => n>=1e7 ? '≈ ₹'+(n/1e7).toFixed(2)+' Crore' : n>=1e5 ? '≈ ₹'+(n/1e5).toFixed(2)+' Lakh' : '≈ '+inr(n);
+
+/* API */
+async function checkApi(){
+  try{ const r=await fetch(base()+'/health'); if(!r.ok) throw 0;
+    $('dot').className='dot ok'; $('status').textContent='API connected';
+  }catch{ $('dot').className='dot bad'; $('status').textContent='API not reachable'; }
+}
+async function predict(body){
+  const r=await fetch(base()+'/predict',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
+  const d=await r.json();
+  if(!r.ok) throw new Error(typeof d.detail==='string'?d.detail:'The server rejected these values.');
+  return Number(String(d.predicted_price).replace(/[^\d.]/g,''));
+}
+
+/* chart */
+function drawChart(pts,cur){
+  const W=640,H=260,L=64,R=18,T=18,B=34;
+  const xs=pts.map(p=>p.x), ys=pts.map(p=>p.y);
+  const x0=Math.min(...xs), x1=Math.max(...xs);
+  let y0=Math.min(...ys), y1=Math.max(...ys); const pad=(y1-y0||y1*0.1)*0.15; y0-=pad; y1+=pad;
+  const sx=x=>L+(x-x0)/(x1-x0||1)*(W-L-R), sy=y=>H-B-(y-y0)/(y1-y0||1)*(H-T-B);
+  const line=pts.map((p,i)=>(i?'L':'M')+sx(p.x)+','+sy(p.y)).join(' ');
+  const area=line+` L${sx(x1)},${H-B} L${sx(x0)},${H-B} Z`;
+  let g='';
+  for(let i=0;i<=4;i++){const v=y0+(y1-y0)*i/4,y=sy(v);
+    g+=`<line x1="${L}" x2="${W-R}" y1="${y}" y2="${y}" stroke="#2a3160" stroke-dasharray="3 4"/>
+        <text x="${L-8}" y="${y+4}" text-anchor="end" fill="#98a0cf" font-size="11">₹${short(v)}</text>`;}
+  let dots='';
+  pts.forEach(p=>{const c=p.x===cur.x;
+    dots+=`<circle cx="${sx(p.x)}" cy="${sy(p.y)}" r="${c?7:4.5}" fill="${c?'#ffb52e':'#151a36'}" stroke="${c?'#fff':'#2dd4a7'}" stroke-width="2"><title>${p.x.toLocaleString('en-IN')} sq ft → ${inr(p.y)}</title></circle>
+    <text x="${sx(p.x)}" y="${H-10}" text-anchor="middle" fill="${c?'#ffb52e':'#98a0cf'}" font-size="11">${p.x.toLocaleString('en-IN')}</text>`;});
+  $('chart').innerHTML=`<defs><linearGradient id="fill" x1="0" y1="0" x2="0" y2="1">
+    <stop offset="0" stop-color="#2dd4a7" stop-opacity=".35"/><stop offset="1" stop-color="#2dd4a7" stop-opacity="0"/></linearGradient></defs>
+    ${g}<path d="${area}" fill="url(#fill)"/><path d="${line}" fill="none" stroke="#2dd4a7" stroke-width="3" stroke-linejoin="round"/>${dots}`;
+}
+
+/* history */
+function renderHistory(){
+  $('list').innerHTML=history.map((h,i)=>{
+    const prev=history[i+1]; let d='';
+    if(prev){const p=(h.price-prev.price)/prev.price*100; d=` <span class="${p>=0?'up':'down'}">${p>=0?'▲':'▼'} ${Math.abs(p).toFixed(1)}%</span>`;}
+    return `<li><b>${inr(h.price)}${d}</b><span>${h.area.toLocaleString('en-IN')} sq ft · ${h.bhk} BHK · ${h.age} yrs old</span></li>`;
+  }).join('');
+}
+
+/* main */
+async function run(e){
+  if(e) e.preventDefault();
+  const err=$('err'); err.hidden=true;
+  const body={Area_sqft:+$('area').value,Bedrooms:state.bed,Bathrooms:state.bath,Floors:state.floors,
+    Age_of_House:+$('age').value,Garage:state.garage,Location_Rating:+$('loc').value,Distance_to_City_km:+$('dist').value};
+  if(!(body.Area_sqft>0)||!(body.Age_of_House>=0)||!(body.Distance_to_City_km>=0)){
+    err.textContent='Area must be above 0, and age and distance cannot be negative.'; err.hidden=false; return;
+  }
+  const btn=$('go'); btn.disabled=true; btn.textContent='Estimating…'; $('price').classList.add('load');
+  try{
+    const mult=[0.6,0.8,1,1.2,1.4,1.6];
+    const areas=mult.map(m=>Math.round(body.Area_sqft*m));
+    const prices=await Promise.all(areas.map(a=>predict({...body,Area_sqft:a})));
+    const n=prices[2];
+    const last=history[0];
+    $('price').textContent=inr(n); $('words').textContent=words(n);
+    $('t1').textContent=inr(n/body.Area_sqft)+' / sq ft';
+    $('t2').textContent=`${body.Bedrooms} BHK · ${body.Floors} fl`;
+    if(last){const p=(n-last.price)/last.price*100;
+      $('t3').innerHTML=`<span class="${p>=0?'up':'down'}">${p>=0?'▲':'▼'} ${Math.abs(p).toFixed(1)}%</span>`;}
+    else $('t3').textContent='First estimate';
+    drawChart(areas.map((a,i)=>({x:a,y:prices[i]})),{x:areas[2]});
+    history.unshift({price:n,area:body.Area_sqft,bhk:body.Bedrooms,age:body.Age_of_House});
+    if(history.length>8) history.pop();
+    renderHistory();
+    $('dot').className='dot ok'; $('status').textContent='API connected';
+  }catch(ex){
+    err.textContent = ex instanceof TypeError
+      ? 'Could not reach the API. Start your FastAPI server and check the address at the top right.'
+      : ex.message;
+    err.hidden=false; $('dot').className='dot bad'; $('status').textContent='API not reachable';
+  }finally{
+    btn.disabled=false; btn.textContent='Estimate price'; $('price').classList.remove('load');
+  }
+}
+$('form').addEventListener('submit',run);
+$('url').addEventListener('change',checkApi);
+checkApi().then(()=>run());   // first estimate on page load
+</script>
+</body>
+</html>
